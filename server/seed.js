@@ -1,6 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { initializeDatabase, pool, query, withTransaction } from "./db.js";
+import { connectDatabase, prisma } from "./db.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,69 +12,64 @@ if (process.env.NODE_ENV === "production" && (!process.env.ADMIN_PASSWORD || pro
 }
 
 try {
-  await initializeDatabase();
+  await connectDatabase();
   const passwordHash = await bcrypt.hash("Author123!", 10);
   const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin123!", 10);
 
-  await withTransaction(async (client) => {
-    for (const author of sample.authors) {
-      await client.query(`
-        INSERT INTO users (id,name,email,password_hash,role,phone,city,joined_date)
-        VALUES ($1,$2,$3,$4,'author',$5,$6,$7)
-        ON CONFLICT (id) DO NOTHING
-      `, [
-        author.author_id,
-        author.name,
-        author.email,
+  await prisma.$transaction(async (transaction) => {
+    await transaction.user.createMany({
+      data: sample.authors.map((author) => ({
+        id: author.author_id,
+        name: author.name,
+        email: author.email,
         passwordHash,
-        author.phone || null,
-        author.city || null,
-        author.joined_date || null,
-      ]);
+        role: "author",
+        phone: author.phone || null,
+        city: author.city || null,
+        joinedDate: author.joined_date || null,
+      })),
+      skipDuplicates: true,
+    });
 
-      for (const book of author.books) {
-        await client.query(`
-          INSERT INTO books (
-            id,author_id,title,isbn,genre,publication_date,status,mrp,
-            author_royalty_per_copy,total_copies_sold,total_royalty_earned,
-            royalty_paid,royalty_pending,last_royalty_payout_date,print_partner,available_on
-          ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
-          )
-          ON CONFLICT (id) DO NOTHING
-        `, [
-          book.book_id,
-          author.author_id,
-          book.title,
-          book.isbn,
-          book.genre,
-          book.publication_date || null,
-          book.status,
-          book.mrp,
-          book.author_royalty_per_copy,
-          book.total_copies_sold,
-          book.total_royalty_earned,
-          book.royalty_paid,
-          book.royalty_pending,
-          book.last_royalty_payout_date || null,
-          book.print_partner || null,
-          JSON.stringify(book.available_on || []),
-        ]);
-      }
-    }
+    await transaction.book.createMany({
+      data: sample.authors.flatMap((author) => author.books.map((book) => ({
+        id: book.book_id,
+        authorId: author.author_id,
+        title: book.title,
+        isbn: book.isbn,
+        genre: book.genre,
+        publicationDate: book.publication_date || null,
+        status: book.status,
+        mrp: book.mrp,
+        authorRoyaltyPerCopy: book.author_royalty_per_copy,
+        totalCopiesSold: book.total_copies_sold,
+        totalRoyaltyEarned: book.total_royalty_earned,
+        royaltyPaid: book.royalty_paid,
+        royaltyPending: book.royalty_pending,
+        lastRoyaltyPayoutDate: book.last_royalty_payout_date || null,
+        printPartner: book.print_partner || null,
+        availableOn: book.available_on || [],
+      }))),
+      skipDuplicates: true,
+    });
 
-    await client.query(`
-      INSERT INTO users (id,name,email,password_hash,role)
-      VALUES ('ADMIN001','BookLeaf Support','admin@bookleaf.local',$1,'admin')
-      ON CONFLICT (id) DO NOTHING
-    `, [adminHash]);
+    await transaction.user.createMany({
+      data: [{
+        id: "ADMIN001",
+        name: "BookLeaf Support",
+        email: "admin@bookleaf.local",
+        passwordHash: adminHash,
+        role: "admin",
+      }],
+      skipDuplicates: true,
+    });
   });
 
   const [authors, books] = await Promise.all([
-    query("SELECT COUNT(*)::int AS count FROM users WHERE role='author'"),
-    query("SELECT COUNT(*)::int AS count FROM books"),
+    prisma.user.count({ where: { role: "author" } }),
+    prisma.book.count(),
   ]);
-  console.log(`Seeded ${authors.rows[0].count} authors and ${books.rows[0].count} books.`);
+  console.log(`Seeded ${authors} authors and ${books} books.`);
 } finally {
-  await pool.end();
+  await prisma.$disconnect();
 }

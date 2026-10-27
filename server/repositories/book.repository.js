@@ -1,16 +1,21 @@
-import { jsonBook, query } from "../db.js";
+import { prisma, jsonBook } from "../db.js";
 
 export async function listForAuthor(authorId) {
-  const result = await query("SELECT * FROM books WHERE author_id=$1 ORDER BY title", [authorId]);
-  return result.rows.map(jsonBook);
+  const books = await prisma.book.findMany({
+    where: { authorId },
+    orderBy: { title: "asc" },
+  });
+  return books.map(jsonBook);
 }
 
 export async function findForAuthor(bookId, authorId) {
-  const result = await query("SELECT id FROM books WHERE id=$1 AND author_id=$2", [bookId, authorId]);
-  return result.rows[0] || null;
+  return prisma.book.findFirst({
+    where: { id: bookId, authorId },
+    select: { id: true },
+  });
 }
 
 export async function findById(bookId) {
-  const result = await query("SELECT * FROM books WHERE id=$1", [bookId]);
-  return result.rows[0] || null;
+  const book = await prisma.book.findUnique({ where: { id: bookId } });
+  return book ? jsonBook(book) : null;
 }

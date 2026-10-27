@@ -9,7 +9,7 @@ function publicUser(user) {
 export async function login(req, res) {
   const { email, password } = req.validated.body;
   const user = await userRepository.findByEmail(email.trim());
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ error: "Email or password is incorrect." });
   }
   res.json({ token: createToken(user), user: publicUser(user) });

@@ -17,7 +17,7 @@ npm run seed
 npm run dev
 ```
 
-Set `db` in `.env` to a PostgreSQL connection URL before seeding (or use `DATABASE_URL`). The database role needs permission to create tables and indexes. `npm run seed` initializes the schema and idempotently adds the sample authors, books, and admin account; it does not overwrite records with matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
+Set `db` in `.env` to a PostgreSQL connection URL (or use `DATABASE_URL`). Generate Prisma Client with `npm run db:generate`, apply schema migrations with `npm run db:migrate`, then run `npm run seed` to idempotently add sample authors, books, and the admin account without overwriting matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. For schema changes in development, update `prisma/schema.prisma` and run `npm run db:migrate:dev -- --name <change>`. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
 
 The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a unique secret for each environment and keep it in the ignored `.env` file or a deployment secret manager. Do not paste a real secret into the example file or commit it.
 
@@ -51,7 +51,7 @@ The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a uniqu
 
 `server/controllers/`: HTTP handlers; translate validated requests into service/repository calls and shape HTTP responses.
 
-`server/repositories/`: PostgreSQL queries and persistence mapping, including author-scoped lookups and ticket/message relations.
+`server/repositories/`: Prisma ORM queries and API response mapping, including author-scoped lookups and ticket/message relations.
 
 `server/middleware/`: shared authentication, role checks, validation, async error forwarding, and rate limits.
 
@@ -61,11 +61,15 @@ The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a uniqu
 
 `server/ai.test.js`: focused tests for Groq request configuration, valid response parsing, fallback when there is no key, and rate limit fallback.
 
-`server/db.js`: PostgreSQL connection pool, relational schema, constraints, and JSON book decoding.
+`server/db.js`: Prisma Client setup and API response mapping for books.
 
-`server/seed.js`: idempotent loader for the provided author/book dataset plus local demo accounts.
+`prisma/schema.prisma`: PostgreSQL data model and Prisma Client generator.
 
 `server/data/bookleaf_sample_data.json`: supplied assignment dataset.
+
+`server/seed.js`: idempotent ORM seed for the provided author/book dataset plus a demo admin account.
+
+`prisma/migrations/`: versioned PostgreSQL schema migrations.
 
 PostgreSQL foreign keys constrain relationships; passwords are bcrypt hashes; tickets and public/internal messages are separate records. The connection URL is read only by the server and must never be exposed to the client or committed.
 

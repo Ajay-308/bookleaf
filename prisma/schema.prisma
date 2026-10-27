@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("db")
+}
+
+model User {
+  id              String    @id
+  name            String
+  email           String
+  passwordHash    String    @map("password_hash")
+  role            String
+  phone           String?
+  city            String?
+  joinedDate      String?   @map("joined_date")
+  books           Book[]
+  authoredTickets Ticket[]  @relation("TicketAuthor")
+  assignedTickets Ticket[]  @relation("TicketAssignee")
+  messages        Message[]
+
+  @@map("users")
+}
+
+model Book {
+  id                    String   @id
+  authorId              String   @map("author_id")
+  title                 String
+  isbn                  String
+  genre                 String
+  publicationDate       String?  @map("publication_date")
+  status                String
+  mrp                   Float?
+  authorRoyaltyPerCopy  Float?   @map("author_royalty_per_copy")
+  totalCopiesSold       Int      @default(0) @map("total_copies_sold")
+  totalRoyaltyEarned    Float    @default(0) @map("total_royalty_earned")
+  royaltyPaid           Float    @default(0) @map("royalty_paid")
+  royaltyPending        Float    @default(0) @map("royalty_pending")
+  lastRoyaltyPayoutDate String?  @map("last_royalty_payout_date")
+  printPartner          String?  @map("print_partner")
+  availableOn           Json     @default("[]") @map("available_on")
+  author                User     @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tickets               Ticket[]
+
+  @@map("books")
+}
+
+model Ticket {
+  id           String    @id
+  authorId     String    @map("author_id")
+  bookId       String?   @map("book_id")
+  subject      String
+  description  String
+  category     String
+  priority     String
+  status       String    @default("Open")
+  assignedToId String?   @map("assigned_to")
+  createdAt    String    @map("created_at")
+  updatedAt    String    @map("updated_at")
+  aiError      String?   @map("ai_error")
+  author       User      @relation("TicketAuthor", fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedTo   User?     @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  book         Book?     @relation(fields: [bookId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  messages     Message[]
+
+  @@index([status, priority, createdAt], map: "tickets_status_priority_created")
+  @@map("tickets")
+}
+
+model Message {
+  id         String @id
+  ticketId   String @map("ticket_id")
+  authorId   String @map("author_id")
+  body       String
+  visibility String
+  createdAt  String @map("created_at")
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  author     User   @relation(fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([ticketId, createdAt], map: "messages_ticket_created")
+  @@map("messages")
+}
