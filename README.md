@@ -19,17 +19,6 @@ Open the Vite URL shown in the terminal (normally `http://localhost:5173`). The 
 
 The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a unique secret for each environment and keep it in the ignored `.env` file or a deployment secret manager. Do not paste a real secret into the example file or commit it.
 
-### Demo accounts
-
-All sample authors use the password `Author123!`.
-
-| Role | Email | Password |
-| --- | --- | --- |
-| Author | `priya.sharma@email.com` | `Author123!` |
-| Admin | `admin@bookleaf.local` | `Admin123!` |
-
-Set `ADMIN_PASSWORD` in `.env` before the first seed to change the local demo admin password. In production, set a unique password of at least 12 characters before seeding; the seed refuses the demo default in production mode. The seed is idempotent and will not reset a password on an existing account. Treat these credentials as demo-only; do not expose a deployed instance with demo credentials.
-
 ## Architecture
 
 - `src/main.tsx`: browser entry point; mounts the React application and global styles.
