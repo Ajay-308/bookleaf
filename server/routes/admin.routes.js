@@ -9,10 +9,10 @@ import { adminTicketQuerySchema, ticketMessageSchema, updateTicketSchema } from 
 const router = Router();
 
 router.use(authenticate, requireRole("admin"));
-router.get("/tickets", validate(adminTicketQuerySchema, "query"), listTickets);
-router.get("/tickets/:id", getTicket);
+router.get("/tickets", validate(adminTicketQuerySchema, "query"), asyncHandler(listTickets));
+router.get("/tickets/:id", asyncHandler(getTicket));
 router.post("/tickets/:id/draft", aiLimiter, asyncHandler(generateDraft));
-router.patch("/tickets/:id", validate(updateTicketSchema), updateTicket);
-router.post("/tickets/:id/messages", validate(ticketMessageSchema), addMessage);
+router.patch("/tickets/:id", validate(updateTicketSchema), asyncHandler(updateTicket));
+router.post("/tickets/:id/messages", validate(ticketMessageSchema), asyncHandler(addMessage));
 
 export default router;

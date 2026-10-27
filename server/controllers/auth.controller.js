@@ -8,15 +8,15 @@ function publicUser(user) {
 
 export async function login(req, res) {
   const { email, password } = req.validated.body;
-  const user = userRepository.findByEmail(email.trim());
+  const user = await userRepository.findByEmail(email.trim());
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     return res.status(401).json({ error: "Email or password is incorrect." });
   }
   res.json({ token: createToken(user), user: publicUser(user) });
 }
 
-export function currentUser(req, res) {
-  const user = userRepository.findById(req.user.sub);
+export async function currentUser(req, res) {
+  const user = await userRepository.findById(req.user.sub);
   if (!user) return res.status(401).json({ error: "Account no longer exists." });
   res.json({ user: publicUser(user) });
 }

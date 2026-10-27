@@ -1,6 +1,6 @@
 # BookLeaf Author Support
 
-A private, local author support portal built for the BookLeaf technical assignment. It contains an author dashboard, a support ticket workflow for operations staff, a SQLite API, and optional AI classification and response drafting. The provided sample dataset of ten authors and eighteen books is included for local testing.
+A private author support portal built for the BookLeaf technical assignment. It contains an author dashboard, a support ticket workflow for operations staff, a PostgreSQL-backed API, and optional AI classification and response drafting. The provided sample dataset of ten authors and eighteen books is included for local testing.
 
 ## Run locally
 
@@ -17,7 +17,7 @@ npm run seed
 npm run dev
 ```
 
-Open the Vite URL shown in the terminal (normally `http://localhost:5173`). The API runs on `http://localhost:4000`. The first seed creates the database at `server/data/bookleaf.sqlite`; running the seed again is safe and does not overwrite existing users or records.
+Set `db` in `.env` to a PostgreSQL connection URL before seeding (or use `DATABASE_URL`). The database role needs permission to create tables and indexes. `npm run seed` initializes the schema and idempotently adds the sample authors, books, and admin account; it does not overwrite records with matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
 
 The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a unique secret for each environment and keep it in the ignored `.env` file or a deployment secret manager. Do not paste a real secret into the example file or commit it.
 
@@ -51,7 +51,7 @@ The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a uniqu
 
 `server/controllers/`: HTTP handlers; translate validated requests into service/repository calls and shape HTTP responses.
 
-`server/repositories/`: SQLite queries and persistence mapping, including author scoped lookups and ticket/message relations.
+`server/repositories/`: PostgreSQL queries and persistence mapping, including author-scoped lookups and ticket/message relations.
 
 `server/middleware/`: shared authentication, role checks, validation, async error forwarding, and rate limits.
 
@@ -61,13 +61,13 @@ The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a uniqu
 
 `server/ai.test.js`: focused tests for Groq request configuration, valid response parsing, fallback when there is no key, and rate limit fallback.
 
-`server/db.js`: SQLite connection, relational schema, constraints, and JSON book decoding.
+`server/db.js`: PostgreSQL connection pool, relational schema, constraints, and JSON book decoding.
 
 `server/seed.js`: idempotent loader for the provided author/book dataset plus local demo accounts.
 
-`server/data/bookleaf_sample_data.json`: supplied assignment dataset; `server/data/bookleaf.sqlite` is the generated local database and is ignored by Git.
+`server/data/bookleaf_sample_data.json`: supplied assignment dataset.
 
-SQLite is a local demo store. Foreign keys constrain relationships; passwords are bcrypt hashes; tickets and public/internal messages are separate records.
+PostgreSQL foreign keys constrain relationships; passwords are bcrypt hashes; tickets and public/internal messages are separate records. The connection URL is read only by the server and must never be exposed to the client or committed.
 
 JWTs expire after 12 hours and are held in browser session storage. Author endpoints constrain book and ticket reads/writes to the signed in author's ID. Admin routes are protected by role.
 
@@ -110,7 +110,7 @@ Ticket statuses: `Open`, `In Progress`, `Resolved`, `Closed`. Categories: `Royal
 
 ## Configuration and production notes
 
-Copy `.env.example` to `.env`. Set a long random `JWT_SECRET`, a unique `ADMIN_PASSWORD`, and (optionally) `GROQ_API_KEY`. Never commit `.env`. The API adds standard security headers, validation for JSON and body size, throttles for API, login, ticket and AI requests, and a stricter production check for the JWT secret. These rate limits use memory storage, which is not shared across server instances. For a real production deployment, use HTTPS, a persistent managed database and storage (SQLite here is for local evaluation), a rate limit store shared across instances, managed secrets, audit logging, schema migrations and backups, observability, account recovery and stronger session controls, and real attachment storage. File selection is only available in the UI in this assignment build; do not deploy the seeded demo accounts as real credentials.
+Copy `.env.example` to `.env`. Set a PostgreSQL connection URL in `db`, a long random `JWT_SECRET`, a unique `ADMIN_PASSWORD`, and (optionally) `GROQ_API_KEY`. Never commit `.env`. The API adds standard security headers, validation for JSON and body size, throttles for API, login, ticket and AI requests, and a stricter production check for the JWT secret. These rate limits use memory storage, which is not shared across server instances. For a production deployment, use HTTPS, managed secrets, audit logging, versioned schema migrations and backups, observability, account recovery and stronger session controls, and real attachment storage. File selection is only available in the UI in this assignment build; do not deploy the seeded demo accounts as real credentials.
 
 The assignment says not to publish this confidential solution or data publicly. Keep this workspace and any repository private.
 

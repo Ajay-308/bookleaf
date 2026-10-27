@@ -1,6 +1,6 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { db } from "./db.js";
+import { initializeDatabase, pool, query, withTransaction } from "./db.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,63 +10,71 @@ const sample = JSON.parse(fs.readFileSync(path.join(here, "data", "bookleaf_samp
 if (process.env.NODE_ENV === "production" && (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD.length < 12)) {
   throw new Error("Production seeding requires ADMIN_PASSWORD with at least 12 characters.");
 }
-const passwordHash = await bcrypt.hash("Author123!", 10);
-const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin123!", 10);
 
-const seed = db.transaction(() => {
-  const insertAuthor = db.prepare(`
-    INSERT OR IGNORE INTO users (id, name, email, password_hash, role, phone, city, joined_date)
-    VALUES (@id, @name, @email, @password_hash, 'author', @phone, @city, @joined_date)
-  `);
-  const insertBook = db.prepare(`
-    INSERT OR IGNORE INTO books (
-      id, author_id, title, isbn, genre, publication_date, status, mrp,
-      author_royalty_per_copy, total_copies_sold, total_royalty_earned,
-      royalty_paid, royalty_pending, last_royalty_payout_date, print_partner, available_on
-    ) VALUES (
-      @id, @author_id, @title, @isbn, @genre, @publication_date, @status, @mrp,
-      @author_royalty_per_copy, @total_copies_sold, @total_royalty_earned,
-      @royalty_paid, @royalty_pending, @last_royalty_payout_date, @print_partner, @available_on
-    )
-  `);
+try {
+  await initializeDatabase();
+  const passwordHash = await bcrypt.hash("Author123!", 10);
+  const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin123!", 10);
 
-  for (const author of sample.authors) {
-    insertAuthor.run({
-      id: author.author_id,
-      name: author.name,
-      email: author.email,
-      password_hash: passwordHash,
-      phone: author.phone || null,
-      city: author.city || null,
-      joined_date: author.joined_date || null,
-    });
-    for (const book of author.books) {
-      insertBook.run({
-        id: book.book_id,
-        author_id: author.author_id,
-        title: book.title,
-        isbn: book.isbn,
-        genre: book.genre,
-        publication_date: book.publication_date || null,
-        status: book.status,
-        mrp: book.mrp,
-        author_royalty_per_copy: book.author_royalty_per_copy,
-        total_copies_sold: book.total_copies_sold,
-        total_royalty_earned: book.total_royalty_earned,
-        royalty_paid: book.royalty_paid,
-        royalty_pending: book.royalty_pending,
-        last_royalty_payout_date: book.last_royalty_payout_date || null,
-        print_partner: book.print_partner || null,
-        available_on: JSON.stringify(book.available_on || []),
-      });
+  await withTransaction(async (client) => {
+    for (const author of sample.authors) {
+      await client.query(`
+        INSERT INTO users (id,name,email,password_hash,role,phone,city,joined_date)
+        VALUES ($1,$2,$3,$4,'author',$5,$6,$7)
+        ON CONFLICT (id) DO NOTHING
+      `, [
+        author.author_id,
+        author.name,
+        author.email,
+        passwordHash,
+        author.phone || null,
+        author.city || null,
+        author.joined_date || null,
+      ]);
+
+      for (const book of author.books) {
+        await client.query(`
+          INSERT INTO books (
+            id,author_id,title,isbn,genre,publication_date,status,mrp,
+            author_royalty_per_copy,total_copies_sold,total_royalty_earned,
+            royalty_paid,royalty_pending,last_royalty_payout_date,print_partner,available_on
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
+          )
+          ON CONFLICT (id) DO NOTHING
+        `, [
+          book.book_id,
+          author.author_id,
+          book.title,
+          book.isbn,
+          book.genre,
+          book.publication_date || null,
+          book.status,
+          book.mrp,
+          book.author_royalty_per_copy,
+          book.total_copies_sold,
+          book.total_royalty_earned,
+          book.royalty_paid,
+          book.royalty_pending,
+          book.last_royalty_payout_date || null,
+          book.print_partner || null,
+          JSON.stringify(book.available_on || []),
+        ]);
+      }
     }
-  }
 
-  db.prepare(`
-    INSERT OR IGNORE INTO users (id, name, email, password_hash, role)
-    VALUES ('ADMIN001', 'BookLeaf Support', 'admin@bookleaf.local', ?, 'admin')
-  `).run(adminHash);
-});
+    await client.query(`
+      INSERT INTO users (id,name,email,password_hash,role)
+      VALUES ('ADMIN001','BookLeaf Support','admin@bookleaf.local',$1,'admin')
+      ON CONFLICT (id) DO NOTHING
+    `, [adminHash]);
+  });
 
-seed();
-console.log(`Seeded ${db.prepare("SELECT COUNT(*) AS n FROM users WHERE role='author'").get().n} authors and ${db.prepare("SELECT COUNT(*) AS n FROM books").get().n} books.`);
+  const [authors, books] = await Promise.all([
+    query("SELECT COUNT(*)::int AS count FROM users WHERE role='author'"),
+    query("SELECT COUNT(*)::int AS count FROM books"),
+  ]);
+  console.log(`Seeded ${authors.rows[0].count} authors and ${books.rows[0].count} books.`);
+} finally {
+  await pool.end();
+}

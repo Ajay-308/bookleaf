@@ -9,9 +9,9 @@ import { createTicketSchema } from "../validation/schemas.js";
 const router = Router();
 
 router.use(authenticate, requireRole("author"));
-router.get("/books", listBooks);
+router.get("/books", asyncHandler(listBooks));
 router.post("/tickets", ticketLimiter, validate(createTicketSchema), asyncHandler(createTicket));
-router.get("/tickets", listTickets);
-router.get("/tickets/:id", getTicket);
+router.get("/tickets", asyncHandler(listTickets));
+router.get("/tickets/:id", asyncHandler(getTicket));
 
 export default router;

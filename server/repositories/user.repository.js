@@ -1,13 +1,16 @@
-import { db } from "../db.js";
+import { query } from "../db.js";
 
-export function findByEmail(email) {
-  return db.prepare("SELECT * FROM users WHERE email=?").get(email);
+export async function findByEmail(email) {
+  const result = await query("SELECT * FROM users WHERE LOWER(email)=LOWER($1)", [email]);
+  return result.rows[0] || null;
 }
 
-export function findById(id) {
-  return db.prepare("SELECT * FROM users WHERE id=?").get(id);
+export async function findById(id) {
+  const result = await query("SELECT * FROM users WHERE id=$1", [id]);
+  return result.rows[0] || null;
 }
 
-export function findPublicById(id) {
-  return db.prepare("SELECT id,name,email FROM users WHERE id=?").get(id);
+export async function findPublicById(id) {
+  const result = await query("SELECT id,name,email FROM users WHERE id=$1", [id]);
+  return result.rows[0] || null;
 }

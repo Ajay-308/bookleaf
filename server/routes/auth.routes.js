@@ -9,6 +9,6 @@ import { loginSchema } from "../validation/schemas.js";
 const router = Router();
 
 router.post("/login", loginLimiter, validate(loginSchema), asyncHandler(login));
-router.get("/me", authenticate, currentUser);
+router.get("/me", authenticate, asyncHandler(currentUser));
 
 export default router;

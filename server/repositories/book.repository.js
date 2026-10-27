@@ -1,13 +1,16 @@
-import { db, jsonBook } from "../db.js";
+import { jsonBook, query } from "../db.js";
 
-export function listForAuthor(authorId) {
-  return db.prepare("SELECT * FROM books WHERE author_id=? ORDER BY title").all(authorId).map(jsonBook);
+export async function listForAuthor(authorId) {
+  const result = await query("SELECT * FROM books WHERE author_id=$1 ORDER BY title", [authorId]);
+  return result.rows.map(jsonBook);
 }
 
-export function findForAuthor(bookId, authorId) {
-  return db.prepare("SELECT id FROM books WHERE id=? AND author_id=?").get(bookId, authorId);
+export async function findForAuthor(bookId, authorId) {
+  const result = await query("SELECT id FROM books WHERE id=$1 AND author_id=$2", [bookId, authorId]);
+  return result.rows[0] || null;
 }
 
-export function findById(bookId) {
-  return db.prepare("SELECT * FROM books WHERE id=?").get(bookId);
+export async function findById(bookId) {
+  const result = await query("SELECT * FROM books WHERE id=$1", [bookId]);
+  return result.rows[0] || null;
 }
