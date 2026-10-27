@@ -11,7 +11,7 @@ type AdminQueueProps = {
   draft: string;
   reply: string;
   note: string;
-  busy: boolean;
+  draftLoading: boolean;
   onFiltersChange: (filters: QueueFilters) => void;
   onSelectTicket: (ticket: Ticket | null) => void;
   onDraftChange: (value: string) => void;
@@ -27,7 +27,7 @@ type AdminQueueProps = {
 };
 
 export function AdminQueue(props: AdminQueueProps) {
-  const { tickets, selectedTicket, filters, draft, reply, note, busy, onFiltersChange, onSelectTicket } = props;
+  const { tickets, selectedTicket, filters, draft, reply, note, draftLoading, onFiltersChange, onSelectTicket } = props;
   const open = tickets.filter((ticket) => !["Resolved", "Closed"].includes(ticket.status)).length;
   const urgent = tickets.filter((ticket) => ["Critical", "High"].includes(ticket.priority) && !["Resolved", "Closed"].includes(ticket.status)).length;
   const resolved = tickets.filter((ticket) => ticket.status === "Resolved").length;
@@ -60,7 +60,7 @@ export function AdminQueue(props: AdminQueueProps) {
       </div>}
     </section>
     {selectedTicket && <TicketDetail
-      ticket={selectedTicket} draft={draft} reply={reply} note={note} busy={busy}
+      ticket={selectedTicket} draft={draft} reply={reply} note={note} draftLoading={draftLoading}
       onClose={() => onSelectTicket(null)} onDraftChange={props.onDraftChange}
       onReplyChange={props.onReplyChange} onNoteChange={props.onNoteChange}
       onStatus={props.onStatus} onCategory={props.onCategory} onPriority={props.onPriority}

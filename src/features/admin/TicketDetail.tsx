@@ -8,7 +8,7 @@ type TicketDetailProps = {
   draft: string;
   reply: string;
   note: string;
-  busy: boolean;
+  draftLoading: boolean;
   onClose: () => void;
   onDraftChange: (value: string) => void;
   onReplyChange: (value: string) => void;
@@ -22,7 +22,7 @@ type TicketDetailProps = {
   onNote: () => void;
 };
 
-export function TicketDetail({ ticket, draft, reply, note, busy, onClose, onDraftChange, onReplyChange, onNoteChange, onStatus, onCategory, onPriority, onAssign, onDraft, onSend, onNote }: TicketDetailProps) {
+export function TicketDetail({ ticket, draft, reply, note, draftLoading, onClose, onDraftChange, onReplyChange, onNoteChange, onStatus, onCategory, onPriority, onAssign, onDraft, onSend, onNote }: TicketDetailProps) {
   return <div className="detail-overlay" onClick={onClose}><section className="detail-drawer" onClick={(event) => event.stopPropagation()}>
     <div className="drawer-header"><span className="eyebrow">TICKET · {ticket.id.slice(0, 8).toUpperCase()}</span><button className="icon-button" onClick={onClose}>×</button></div>
     <div className="drawer-scroll">
@@ -37,7 +37,8 @@ export function TicketDetail({ ticket, draft, reply, note, busy, onClose, onDraf
         <label className="wide-control">CATEGORY<select value={ticket.category} onChange={(event) => onCategory(event.target.value)}>{categories.map((value) => <option key={value}>{value}</option>)}</select></label>
       </div>
       <button className="assign-button" onClick={onAssign}>↗ Assign this ticket to me</button>
-      <div className="response-heading"><div><h3>Response to author</h3><p>Review before sending. Only you can see this draft.</p></div><button className="button outline compact" onClick={onDraft} disabled={busy}>✳ {busy ? "Thinking…" : "Generate draft"}</button></div>
+      <div className="response-heading"><div><h3>Response to author</h3><p>Review before sending. Only you can see this draft.</p></div><button className="button outline compact" onClick={onDraft} disabled={draftLoading}>{draftLoading ? "Thinking…" : "✳ Generate draft"}</button></div>
+      {draftLoading && !draft && <p role="status">Preparing a suggested response…</p>}
       {draft && <label className="draft-label">AI SUGGESTION<textarea rows={5} value={draft} onChange={(event) => onDraftChange(event.target.value)} /></label>}
       <textarea className="reply-box" rows={draft ? 4 : 6} placeholder="Write a thoughtful reply to the author…" value={reply || draft} onChange={(event) => { onReplyChange(event.target.value); if (draft) onDraftChange(""); }} />
       <button className="button primary full" onClick={onSend} disabled={!(reply || draft).trim()}>Send response <span>→</span></button>

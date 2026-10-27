@@ -44,6 +44,42 @@ test("uses local classification when the Groq key is not configured", async () =
   assert.equal(result.aiUnavailable, true);
 });
 
+test("falls back when the model returns an unsupported classification", async () => {
+  process.env.GROQ_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    choices: [{ message: { content: '{"category":"Other","priority":"Urgent"}' } }],
+  }), { status: 200, headers: { "content-type": "application/json" } });
+
+  const result = await classifyTicket("Royalty missing", "My payout is overdue.");
+  assert.equal(result.category, "Royalty & Payments");
+  assert.equal(result.priority, "High");
+  assert.equal(result.aiUnavailable, true);
+});
+
+test("grounds response drafts in the relevant BookLeaf policy", async () => {
+  process.env.GROQ_API_KEY = "test-key";
+  let requestBody;
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: "Hi Priya, we will review this and update you." } }],
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+
+  const result = await draftResponse(
+    { subject: "Royalty payout", description: "My payout seems late.", category: "Royalty & Payments" },
+    { title: "Whispers of the Ganges", status: "Published & Live" },
+    { name: "Priya Sharma" },
+  );
+  const prompt = requestBody.messages.map((message) => message.content).join("\n");
+  assert.equal(result.aiUnavailable, false);
+  assert.match(prompt, /80% of net profit/);
+  assert.match(prompt, /within 45 days after quarter end/);
+  assert.match(prompt, /₹1,000/);
+  assert.match(prompt, /do not invent account facts/);
+  assert.match(prompt, /Published & Live/);
+});
+
 test("returns an editable draft when Groq is rate-limited", async () => {
   process.env.GROQ_API_KEY = "test-key";
   globalThis.fetch = async () => new Response("rate limited", { status: 429 });

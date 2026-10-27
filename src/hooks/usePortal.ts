@@ -13,6 +13,7 @@ export function usePortal() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [busy, setBusy] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
   const [notice, setNotice] = useState("");
   const [loginError, setLoginError] = useState("");
   const [filters, setFilters] = useState<QueueFilters>(emptyFilters);
@@ -86,6 +87,9 @@ export function usePortal() {
   useEffect(() => {
     if (user?.role !== "admin" || !selectedTicket) return;
     let active = true;
+    setDraft("");
+    setReply("");
+    setDraftLoading(true);
     api<{ draft: string; aiUnavailable: boolean }>(`/api/admin/tickets/${selectedTicket.id}/draft`, { method: "POST" })
       .then((result) => {
         if (!active) return;
@@ -94,6 +98,9 @@ export function usePortal() {
       })
       .catch((error: Error) => {
         if (active) setNotice(error.message);
+      })
+      .finally(() => {
+        if (active) setDraftLoading(false);
       });
     return () => { active = false; };
   }, [user?.role, selectedTicket?.id, api]);
@@ -162,15 +169,16 @@ export function usePortal() {
 
   async function generateDraft() {
     if (!selectedTicket) return;
-    setBusy(true);
+    setDraftLoading(true);
     try {
       const result = await api<{ draft: string; aiUnavailable: boolean }>(`/api/admin/tickets/${selectedTicket.id}/draft`, { method: "POST" });
       setDraft(result.draft);
+      setReply("");
       setNotice(result.aiUnavailable ? "AI is unavailable; an editable suggested response is ready." : "AI draft ready. Review and edit before sending.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not generate a draft.");
     } finally {
-      setBusy(false);
+      setDraftLoading(false);
     }
   }
 
@@ -183,7 +191,7 @@ export function usePortal() {
 
   return {
     user, page, setPage, books, tickets, selectedTicket, setSelectedTicket,
-    busy, notice, setNotice, loginError, filters, setFilters, draft, setDraft,
+    busy, draftLoading, notice, setNotice, loginError, filters, setFilters, draft, setDraft,
     reply, setReply, internalNote, setInternalNote, newTicket, setNewTicket,
     search, setSearch, royaltyTotals, signOut, logIn, loadPortal, submitTicket,
     updateTicket, sendMessage, generateDraft,

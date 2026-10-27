@@ -28,10 +28,14 @@ function App() {
       draft={portal.draft}
       reply={portal.reply}
       note={portal.internalNote}
-      busy={portal.busy}
+      draftLoading={portal.draftLoading}
       onFiltersChange={portal.setFilters}
       onSelectTicket={(ticket) => {
-        if (portal.selectedTicket?.id !== ticket?.id) portal.setDraft("");
+        if (portal.selectedTicket?.id !== ticket?.id) {
+          portal.setDraft("");
+          portal.setReply("");
+          portal.setInternalNote("");
+        }
         portal.setSelectedTicket(ticket);
       }}
       onDraftChange={portal.setDraft}
