@@ -13,11 +13,15 @@ npm install
 Copy-Item .env.example .env
 $secret = node -e "process.stdout.write(require('node:crypto').randomBytes(48).toString('base64url'))"
 (Get-Content .env) -replace '^JWT_SECRET=.*$', "JWT_SECRET=$secret" | Set-Content .env
+npm run db:generate
+npm run db:migrate
 npm run seed
 npm run dev
 ```
 
-Set `db` in `.env` to a PostgreSQL connection URL (or use `DATABASE_URL`). Generate Prisma Client with `npm run db:generate`, apply schema migrations with `npm run db:migrate`, then run `npm run seed` to idempotently add sample authors, books, and the admin account without overwriting matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. For schema changes in development, update `prisma/schema.prisma` and run `npm run db:migrate:dev -- --name <change>`. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
+Before running these commands, set `db` in `.env` to a PostgreSQL connection URL; Prisma 6 reads this variable from `prisma/schema.prisma`. The database role needs permission to create tables and indexes. Generate Prisma Client with `npm run db:generate`, apply migrations with `npm run db:migrate`, then run `npm run seed` to idempotently add sample authors, books, and the admin account without overwriting matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. For schema changes in development, update `prisma/schema.prisma` and run `npm run db:migrate:dev -- --name describe_change`. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
+
+This project currently targets Prisma 6 (`prisma` and `@prisma/client` 6.19). Prisma 6 supports the datasource `url` in `schema.prisma`; Prisma 7's `prisma.config.ts` and driver-adapter setup are not used here. Use the project-local CLI (`npx prisma` or the npm scripts) rather than a separately installed Prisma 7 CLI.
 
 The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a unique secret for each environment and keep it in the ignored `.env` file or a deployment secret manager. Do not paste a real secret into the example file or commit it.
 
@@ -71,7 +75,7 @@ The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a uniqu
 
 `prisma/migrations/`: versioned PostgreSQL schema migrations.
 
-PostgreSQL foreign keys constrain relationships; passwords are bcrypt hashes; tickets and public/internal messages are separate records. The connection URL is read only by the server and must never be exposed to the client or committed.
+PostgreSQL foreign keys constrain relationships; passwords are bcrypt hashes; tickets and public/internal messages are separate records. The `db` connection URL is used only by server-side Prisma and must never be exposed to the client or committed.
 
 JWTs expire after 12 hours and are held in browser session storage. Author endpoints constrain book and ticket reads/writes to the signed in author's ID. Admin routes are protected by role.
 
