@@ -80,6 +80,21 @@ test("grounds response drafts in the relevant BookLeaf policy", async () => {
   assert.match(prompt, /Published & Live/);
 });
 
+test("returns a safe draft when the model response is truncated", async () => {
+  process.env.GROQ_API_KEY = "test-key";
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    choices: [{ finish_reason: "length", message: { content: "Hi Priya, here is an incomplete" } }],
+  }), { status: 200, headers: { "content-type": "application/json" } });
+
+  const result = await draftResponse(
+    { subject: "Where is my royalty?", description: "My payment is delayed.", category: "Royalty & Payments" },
+    null,
+    { name: "Priya Sharma" },
+  );
+  assert.equal(result.aiUnavailable, true);
+  assert.match(result.draft, /Warm regards,\nBookLeaf Support$/);
+});
+
 test("returns an editable draft when Groq is rate-limited", async () => {
   process.env.GROQ_API_KEY = "test-key";
   globalThis.fetch = async () => new Response("rate limited", { status: 429 });
