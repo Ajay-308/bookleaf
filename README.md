@@ -19,11 +19,19 @@ npm run seed
 npm run dev
 ```
 
-Before running these commands, set `db` in `.env` to a PostgreSQL connection URL; Prisma 6 reads this variable from `prisma/schema.prisma`. The database role needs permission to create tables and indexes. Generate Prisma Client with `npm run db:generate`, apply migrations with `npm run db:migrate`, then run `npm run seed` to idempotently add sample authors, books, and the admin account without overwriting matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. For schema changes in development, update `prisma/schema.prisma` and run `npm run db:migrate:dev -- --name describe_change`. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
+Set `DATABASE_URL` in `.env` to a PostgreSQL connection URL before running the setup commands. The database role needs permission to create tables and indexes. Generate Prisma Client with `npm run db:generate`, apply migrations with `npm run db:migrate`, then run `npm run seed` to idempotently add sample authors, books, and the admin account without overwriting matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. For schema changes in development, update `prisma/schema.prisma` and run `npm run db:migrate:dev -- --name describe_change`. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
 
 This project currently targets Prisma 6 (`prisma` and `@prisma/client` 6.19). Prisma 6 supports the datasource `url` in `schema.prisma`; Prisma 7's `prisma.config.ts` and driver-adapter setup are not used here. Use the project-local CLI (`npx prisma` or the npm scripts) rather than a separately installed Prisma 7 CLI.
 
 The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a unique secret for each environment and keep it in the ignored `.env` file or a deployment secret manager. Do not paste a real secret into the example file or commit it.
+
+## Deploy API to Render
+
+This repository includes `render.yaml` for a backend-only Render web service. Create the service from the Blueprint and set the prompted `CLIENT_ORIGIN`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`, and `GROQ_API_KEY` values in Render's environment settings. `CLIENT_ORIGIN` must be the exact deployed frontend origin (scheme and host, no path). The build command installs build dependencies, generates Prisma Client, and applies checked-in migrations before `npm start` launches the API. Do not run `npm run seed` against a production database.
+
+If configuring an existing Render service manually, use the repository root as its Root Directory, set Build Command to `npm ci --include=dev && npm run db:generate && npm run db:migrate`, and set Start Command to `npm start`. Do not set `NODE_ENV=production` in a way that causes the build to omit development dependencies; the Prisma CLI is a development dependency needed by the build command. The API health check is `/api/health`.
+
+For a separately hosted frontend, set `VITE_API_BASE_URL=https://bookleaf-1-ujzy.onrender.com` in the frontend provider's build environment and rebuild/redeploy the frontend. The frontend calls the API directly; the backend allows cross-origin requests only from the configured `CLIENT_ORIGIN`. `VITE_API_BASE_URL` is public client configuration—never put secrets there.
 
 ## Architecture
 
@@ -118,7 +126,7 @@ Ticket statuses: `Open`, `In Progress`, `Resolved`, `Closed`. Categories: `Royal
 
 ## Configuration and production notes
 
-Copy `.env.example` to `.env`. Set a PostgreSQL connection URL in `db`, a long random `JWT_SECRET`, a unique `ADMIN_PASSWORD`, and (optionally) `GROQ_API_KEY`. Never commit `.env`. The API adds standard security headers, validation for JSON and body size, throttles for API, login, ticket and AI requests, and a stricter production check for the JWT secret. These rate limits use memory storage, which is not shared across server instances. For a production deployment, use HTTPS, managed secrets, audit logging, versioned schema migrations and backups, observability, account recovery and stronger session controls, and real attachment storage. File selection is only available in the UI in this assignment build; do not deploy the seeded demo accounts as real credentials.
+Copy `.env.example` to `.env`. Set a PostgreSQL connection URL in `DATABASE_URL`, a long random `JWT_SECRET`, a unique `ADMIN_PASSWORD`, and (optionally) `GROQ_API_KEY`. Set `CLIENT_ORIGIN` to the frontend origin and `VITE_API_BASE_URL` for the frontend build. Never commit `.env`. The API adds standard security headers, validation for JSON and body size, throttles for API, login, ticket and AI requests, and a stricter production check for the JWT secret. These rate limits use memory storage, which is not shared across server instances. For a production deployment, use HTTPS, managed secrets, audit logging, versioned schema migrations and backups, observability, account recovery and stronger session controls, and real attachment storage. File selection is only available in the UI in this assignment build; do not deploy the seeded demo accounts as real credentials.
 
 The assignment says not to publish this confidential solution or data publicly. Keep this workspace and any repository private.
 

@@ -1,5 +1,9 @@
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "https://bookleaf-1-ujzy.onrender.com")
+  .replace(/\/+$/, "");
+
 export async function request<T>(url: string, token: string, onUnauthorized: () => void, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(url, {
+  const requestUrl = /^https?:\/\//i.test(url) ? url : `${apiBaseUrl}${url}`;
+  const response = await fetch(requestUrl, {
     ...options,
     headers: {
       "Content-Type": "application/json",

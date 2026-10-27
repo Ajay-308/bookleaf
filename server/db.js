@@ -1,6 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 
-export const prisma = new PrismaClient();
+const databaseUrl = process.env.DATABASE_URL || process.env.db;
+if (!databaseUrl) {
+  throw new Error("Set DATABASE_URL (or db for existing local environments).");
+}
+
+export const prisma = new PrismaClient({
+  datasources: { db: { url: databaseUrl } },
+});
 
 export async function connectDatabase() {
   await prisma.$connect();
