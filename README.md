@@ -56,55 +56,45 @@ The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a uniqu
 
 ## Project structure
 
-`src/main.tsx`: browser entry point; mounts the React application and global styles.
+```text
+bookLeaf/
+├── src/                              # React + TypeScript frontend
+│   ├── main.tsx                      # Browser entry point
+│   ├── App.tsx                       # Role-based app composition
+│   ├── components/                   # Shared layout, login, and UI
+│   ├── features/
+│   │   ├── author/AuthorPages.tsx    # Author dashboard, books, and tickets
+│   │   └── admin/                    # Support queue and ticket detail
+│   ├── hooks/usePortal.ts            # Session, API state, and ticket actions
+│   ├── lib/                          # API client and formatting helpers
+│   ├── styles.css                    # Shared responsive styles
+│   └── types.ts                      # Frontend domain types
+├── server/                           # Express REST API
+│   ├── index.js                      # Server startup and database connection
+│   ├── app.js                        # Middleware and route registration
+│   ├── routes/                       # API endpoints and route guards
+│   ├── controllers/                  # HTTP request handlers
+│   ├── repositories/                 # Prisma queries and response mapping
+│   ├── middleware/                   # Authentication, validation, and limits
+│   ├── validation/schemas.js         # Zod request schemas
+│   ├── ai.js                         # AI classification and reply drafting
+│   ├── db.js                         # Prisma Client setup
+│   ├── seed.js                       # Sample account and book seeding
+│   ├── data/
+│   │   └── bookleaf_sample_data.json # Assignment dataset (10 authors, 18 books)
+│   ├── ai.test.js                    # AI behavior and fallback tests
+│   └── api.integration.test.js       # HTTP API lifecycle and access-control tests
+├── prisma/
+│   ├── schema.prisma                 # PostgreSQL data model
+│   └── migrations/                   # Versioned database migrations
+├── APPROACH.md                       # Priorities, trade-offs, and next steps
+├── README.md                         # Setup, API, and project documentation
+└── package.json                      # Scripts and dependencies
+```
 
-`src/App.tsx`: top level role based screen composition; delegates auth/session/data operations to the portal hook and feature screens to their components.
+### How the pieces fit together
 
-`src/hooks/usePortal.ts`: auth/session state, typed API orchestration, ticket actions, queue loading based on filters, and eight second refresh.
-
-`src/lib/api.ts`: shared authenticated JSON request helper and API error handling.
-
-`src/lib/format.ts`: shared currency/date formatters.
-
-`src/types.ts`: shared client side domain types and ticket filter/category constants.
-
-`src/components/`: common UI primitives, login, and the shared application shell.
-
-`src/features/author/AuthorPages.tsx`: author overview, book catalogue, ticket list, and new ticket form.
-
-`src/features/admin/AdminQueue.tsx` and `TicketDetail.tsx`: admin queue, filters, ticket conversation, and response tools.
-
-`src/styles.css`: responsive visual system for both portals.
-
-`server/index.js`: process entry point; loads environment/database and starts the HTTP listener.
-
-`server/app.js`: Express configuration, security middleware, route mounting, static client hosting, and centralized error handling.
-
-`server/routes/`: URL to controller mapping and route specific authentication, role, validation, and rate limit middleware.
-
-`server/controllers/`: HTTP handlers; translate validated requests into service/repository calls and shape HTTP responses.
-
-`server/repositories/`: Prisma ORM queries and API response mapping, including author-scoped lookups and ticket/message relations.
-
-`server/middleware/`: shared authentication, role checks, validation, async error forwarding, and rate limits.
-
-`server/validation/`: reusable Zod schemas for request bodies and filters.
-
-`server/ai.js`: AI service prompts, provider call, enum validation, local classifier fallback, and safe editable response fallback.
-
-`server/ai.test.js`: focused tests for Groq request configuration, valid response parsing, fallback when there is no key, and rate limit fallback.
-
-`server/api.integration.test.js`: HTTP-level author/admin ticket lifecycle, authorization, validation, and response visibility coverage.
-
-`server/db.js`: Prisma Client setup and API response mapping for books.
-
-`prisma/schema.prisma`: PostgreSQL data model and Prisma Client generator.
-
-`server/data/bookleaf_sample_data.json`: supplied assignment dataset.
-
-`server/seed.js`: idempotent ORM seed for the provided author/book dataset plus a demo admin account.
-
-`prisma/migrations/`: versioned PostgreSQL schema migrations.
+The frontend calls the Express API through the shared API client. Routes apply authentication, role checks, and input validation before controllers handle each request. Controllers use repositories for database access, while the AI service provides optional classification and reply suggestions. Prisma defines and migrates the PostgreSQL schema; the seed script loads the supplied sample accounts and books.
 
 PostgreSQL foreign keys constrain relationships; passwords are bcrypt hashes; tickets and public/internal messages are separate records. The `db` connection URL is used only by server-side Prisma and must never be exposed to the client or committed.
 
