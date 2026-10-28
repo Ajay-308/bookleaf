@@ -1,6 +1,24 @@
-# BookLeaf Author Support
+# BookLeaf Author Support Portal
 
-A private author support portal built for the BookLeaf technical assignment. It contains an author dashboard, a support ticket workflow for operations staff, a PostgreSQL-backed API, and optional AI classification and response drafting. The provided sample dataset of ten authors and eighteen books is included for local testing.
+> A full-stack author-care portal for BookLeaf Publishing, with separate author and operations experiences, a PostgreSQL-backed REST API, and optional AI-assisted ticket triage.
+
+| Authors can | Operations can |
+| --- | --- |
+| Browse books, sales, and royalty balances | Triage a searchable, filterable ticket queue |
+| Submit book-specific or account-level questions | Override AI category, priority, and status |
+| Follow replies and ticket status as they update | Assign tickets, add private notes, and send reviewed replies |
+
+The included sample dataset contains **10 authors and 18 books**. The project is intended to remain private because the assignment and its sample data are confidential.
+
+## Contents
+
+- [Run locally](#run-locally)
+- [Demo sign-in](#demo-sign-in)
+- [Project structure](#project-structure)
+- [AI workflow](#ai-workflow)
+- [REST API](#rest-api)
+- [Configuration and limitations](#configuration-and-limitations)
+- [Checks](#checks)
 
 ## Run locally
 
@@ -21,19 +39,22 @@ npm run dev
 
 Set `DATABASE_URL` in `.env` to a PostgreSQL connection URL before running the setup commands. The database role needs permission to create tables and indexes. Generate Prisma Client with `npm run db:generate`, apply migrations with `npm run db:migrate`, then run `npm run seed` to idempotently add sample authors, books, and the admin account without overwriting matching IDs. Set `ADMIN_PASSWORD` to configure the admin account password. For schema changes in development, update `prisma/schema.prisma` and run `npm run db:migrate:dev -- --name describe_change`. Open the Vite URL shown in the terminal (normally `http://localhost:5173`); the API runs on `http://localhost:4000`.
 
+### Demo sign-in
+
+These are the **local seed defaults**. All seeded authors share the author password; the admin password changes if `ADMIN_PASSWORD` is set in `.env`.
+
+| Portal | Email | Password |
+| --- | --- | --- |
+| Author (Priya Sharma) | `priya.sharma@email.com` | `Author123!` |
+| Operations admin | `admin@bookleaf.local` | `Admin123!` by default; otherwise the configured `ADMIN_PASSWORD` |
+
+Use the author and admin quick-select buttons on the sign-in screen. These demo credentials are for local evaluation only; change them before using any real deployment.
+
 This project currently targets Prisma 6 (`prisma` and `@prisma/client` 6.19). Prisma 6 supports the datasource `url` in `schema.prisma`; Prisma 7's `prisma.config.ts` and driver-adapter setup are not used here. Use the project-local CLI (`npx prisma` or the npm scripts) rather than a separately installed Prisma 7 CLI.
 
 The `JWT_SECRET` line in `.env.example` is intentionally blank: generate a unique secret for each environment and keep it in the ignored `.env` file or a deployment secret manager. Do not paste a real secret into the example file or commit it.
 
-## Deploy API to Render
-
-This repository includes `render.yaml` for a backend-only Render web service. Create the service from the Blueprint and set the prompted `CLIENT_ORIGIN`, `DATABASE_URL`, `JWT_SECRET`, `ADMIN_PASSWORD`, and `GROQ_API_KEY` values in Render's environment settings. `CLIENT_ORIGIN` must be the exact deployed frontend origin (scheme and host, no path). The build command installs build dependencies, generates Prisma Client, and applies checked-in migrations before `npm start` launches the API. Do not run `npm run seed` against a production database.
-
-If configuring an existing Render service manually, use the repository root as its Root Directory, set Build Command to `npm ci --include=dev && npm run db:generate && npm run db:migrate`, and set Start Command to `npm start`. Do not set `NODE_ENV=production` in a way that causes the build to omit development dependencies; the Prisma CLI is a development dependency needed by the build command. The API health check is `/api/health`.
-
-For a separately hosted frontend, set `VITE_API_BASE_URL=https://bookleaf-1-ujzy.onrender.com` in the frontend provider's build environment and rebuild/redeploy the frontend. The frontend calls the API directly; the backend allows cross-origin requests only from the configured `CLIENT_ORIGIN`. `VITE_API_BASE_URL` is public client configuration—never put secrets there.
-
-## Architecture
+## Project structure
 
 `src/main.tsx`: browser entry point; mounts the React application and global styles.
 
@@ -73,6 +94,8 @@ For a separately hosted frontend, set `VITE_API_BASE_URL=https://bookleaf-1-ujzy
 
 `server/ai.test.js`: focused tests for Groq request configuration, valid response parsing, fallback when there is no key, and rate limit fallback.
 
+`server/api.integration.test.js`: HTTP-level author/admin ticket lifecycle, authorization, validation, and response visibility coverage.
+
 `server/db.js`: Prisma Client setup and API response mapping for books.
 
 `prisma/schema.prisma`: PostgreSQL data model and Prisma Client generator.
@@ -91,13 +114,13 @@ JWTs expire after 12 hours and are held in browser session storage. Author endpo
 
 The request starts in `server/index.js`, where `server/app.js` installs shared middleware and mounts routers. A route validates and authorizes each request, a controller handles HTTP behavior, and a repository owns database reads and writes. AI integration stays in its service module and is called by the relevant controller. This keeps SQL out of route definitions, HTTP response details out of repositories, and authorization at the API boundary. For a project this size, the separation is intentionally lightweight; a larger system could add a dedicated domain layer and repository interfaces where business rules or database backends justify them.
 
-## AI approach
+## AI workflow
 
 Set `GROQ_API_KEY` in the server's `.env` to enable Groq chat completions (default model: `openai/gpt-oss-20b`; override with `GROQ_MODEL`). Create a key from the [GroqCloud console](https://console.groq.com/keys). The key stays on the server. Groq's chat completions endpoint is OpenAI compatible, so this app uses the standard HTTPS API without a vendor SDK. Ticket classification asks for a constrained category/priority JSON result, then validates both against the allowed enums. Draft generation starts automatically when an admin opens a ticket; the admin can regenerate it with the button. It includes only the relevant BookLeaf policy excerpt, ticket text capped at 2,000 characters, and related book title/status, rather than the entire knowledge base or conversation history. Generation is bounded by output token limits and a 12 second timeout.
 
 Without a key, or when the provider returns an error, new tickets still save with transparent classification based on rules and admins still get a safe editable response suggestion. The admin can override category, priority, and status and must review and edit a draft before sending it. AI output is treated as a suggestion, not an action or source of account facts.
 
-### Why Groq
+### Provider choice
 
 I selected Groq because it offers a free developer tier for trying supported hosted models, and its chat API compatible with OpenAI makes integration small and easy to run. The chosen model is a starting point, not a guarantee that a free quota will always be available: Groq can change its model catalog and rate limits, and requests can be throttled. Check the [current model list](https://console.groq.com/docs/models) and [organization rate limits](https://console.groq.com/docs/rate-limits). The application handles AI errors and quota limits by saving tickets with classification based on local rules and providing a safe editable response draft. Before production, compare Groq with other providers on a labeled BookLeaf ticket set for classification accuracy, factuality/tone, latency, reliability, privacy requirements, and actual price/limits.
 
@@ -124,9 +147,11 @@ All routes below except `POST /api/auth/login` and `GET /api/health` require `Au
 
 Ticket statuses: `Open`, `In Progress`, `Resolved`, `Closed`. Categories: `Royalty & Payments`, `ISBN & Metadata Issues`, `Printing & Quality`, `Distribution & Availability`, `Book Status & Production Updates`, `General Inquiry`. Priorities: `Critical`, `High`, `Medium`, `Low`.
 
-## Configuration and production notes
+## Configuration and limitations
 
-Copy `.env.example` to `.env`. Set a PostgreSQL connection URL in `DATABASE_URL`, a long random `JWT_SECRET`, a unique `ADMIN_PASSWORD`, and (optionally) `GROQ_API_KEY`. Set `CLIENT_ORIGIN` to the frontend origin and `VITE_API_BASE_URL` for the frontend build. Never commit `.env`. The API adds standard security headers, validation for JSON and body size, throttles for API, login, ticket and AI requests, and a stricter production check for the JWT secret. These rate limits use memory storage, which is not shared across server instances. For a production deployment, use HTTPS, managed secrets, audit logging, versioned schema migrations and backups, observability, account recovery and stronger session controls, and real attachment storage. File selection is only available in the UI in this assignment build; do not deploy the seeded demo accounts as real credentials.
+Copy `.env.example` to `.env`. Set a PostgreSQL connection URL in `DATABASE_URL`, a long random `JWT_SECRET`, a unique `ADMIN_PASSWORD`, and (optionally) `GROQ_API_KEY`. Set `CLIENT_ORIGIN` to the exact frontend origin and `VITE_API_BASE_URL` to the API base URL when the client and API are hosted separately. `VITE_API_BASE_URL` is public client configuration—never put secrets there. Apply the checked-in migrations as part of your deployment release, generate Prisma Client during the build, and do not run the sample seed against a production database.
+
+The API adds standard security headers, JSON and body-size validation, rate limits for API, login, ticket, and AI requests, and a production check for the JWT secret. Rate limits use in-memory storage and are not shared across server instances. File selection is UI-only; attachments are not uploaded or persisted. For production, add shared rate-limit storage, managed secrets, audit logging, backups, observability, account recovery, stronger session controls, and secure attachment storage/scanning. Never deploy the sample credentials as real account credentials.
 
 The assignment says not to publish this confidential solution or data publicly. Keep this workspace and any repository private.
 
@@ -137,3 +162,5 @@ npm test
 npm run build
 npm audit --omit=dev
 ```
+
+`npm test` runs the AI service tests and an HTTP-level API lifecycle test. The lifecycle test exercises the real Express app, routes, authentication, validation, controllers, and repositories from sign-in through ticket creation, admin triage, private notes, and author-visible replies. It substitutes an in-memory Prisma boundary, so it requires no running database and does not modify local or production data.
